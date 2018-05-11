@@ -1,95 +1,117 @@
 #pragma warning(disable:4996)
+#define _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS
 
 #include <iostream>
 #include <cstdio>
 #include <ctime>
 #include <cstring>
 #include <queue>
+#include <hash_map>
 #include <Windows.h>
 
 #define N 5
 using namespace std;
 
 typedef struct searchTree {
-	int (*state)[N]; //当前结点状态
+	char (*state)[N]; //当前结点状态
 	struct searchTree *parent;	 //指向父节点
 	char action;	 //生成该节点的动作
-	int pathcost;	 //到达此节点已花费的代价g(n)
-	int h;			 //当前状态不在位的棋子数h(n)
+	short pathcost;	 //到达此节点已花费的代价g(n)
+	short h;			 //当前状态不在位的棋子数h(n)
+	boolean *move;	 //能移动的方向
+	char *position;	 //0所在的位置
 }Node;
 
-typedef struct actionBool {
-	boolean u;
-	boolean d;
-	boolean l;
-	boolean r;
-}actionBool;
-
-boolean operator<(Node n1, Node n2) { //重载优先队列的比较符号
-	if ((n1.pathcost + n1.h) == (n2.pathcost + n2.h))
-		return n1.pathcost < n2.pathcost;
-	return (n1.pathcost + n1.h) > (n2.pathcost + n2.h);
+struct cmp {
+	boolean operator() (Node const *n1, Node const *n2) { //重载优先队列的比较符号
+		if ((n1->pathcost + n1->h) == (n2->pathcost + n2->h))
+			return n1->pathcost < n2->pathcost;
+		return (n1->pathcost + n1->h) > (n2->pathcost + n2->h);
 	}
+};
 
 //clock_t t1, t2;
 LARGE_INTEGER nFreq;//cpu frequency  
 LARGE_INTEGER t1;//begin
 LARGE_INTEGER t2;//end
+char ac[] = { 'u','d','l','r' };
 int movecount = 0; //移动总次数
+int tries;			//扩展次数
+int repeat;			//查重次数
 
+int hashValue(char(*)[N]);			 //hash函数
 int(*filesInput(const char*))[N];	 //读文件
-Node *getNode(Node*, int(*)[N], char);//返回子节点
-int *getPosition(int(*)[N],int n =0);		 //返回空位
-int (*doAction(int(*)[N], char))[N]; //移动
-int geth(int(*)[N], int(*)[N]);      //返回当前状态不在位的棋子数
-actionBool getActionBool(int(*)[N]); //返回当前状态可进行的动作
+Node *getNode(Node*, char(*)[N], char);//返回子节点
+void getPosition(Node*, char n = '0');  //返回数字n所在位置
+char (*doAction(Node*, char))[N];	 //移动
+short geth(char(*)[N], char(*)[N]);      //返回当前状态不在位的棋子数
+void getActionBool(Node*);			 //返回当前状态可进行的动作
 void printAction(Node*);			 //打印移动路径
 
 
 int main() {
-	const char *pathInput = "C:/Users/95850/Desktop/Mine/作业/人工智能基础/PB15111650_郭秋洋_实验一/22数码/input.txt";
-	const char *pathTarget = "C:/Users/95850/Desktop/Mine/作业/人工智能基础/PB15111650_郭秋洋_实验一/22数码/target.txt";
+	const char *pathInput = "input.txt";
+	const char *pathTarget = "target.txt";
 	
-	int (*start)[N] = filesInput(pathInput);
-	int (*goal)[N] = filesInput(pathTarget);
-	
-	priority_queue<Node> q;//优先队列
+	int (*startint)[N] = filesInput(pathInput);
+	int (*goalint)[N] = filesInput(pathTarget);
+	char (*start)[N] = new char[N][N];
+	char (*goal)[N] = new char[N][N];
+	for (int i = 0;i < N;i++) {
+		for (int j = 0;j < N;j++) {
+			start[i][j] = startint[i][j] + '0';
+			goal[i][j] = goalint[i][j] + '0';
+		}
+	}
+	delete[] startint, goalint;
+
+	priority_queue<Node*,vector<Node*>,cmp> q;//优先队列
+	hash_map<int, boolean> hashmap;
 	/*初始结点*/
 	Node root;
-	root.state = start;
-	root.action = NULL;
-	root.parent = NULL;
-	root.pathcost = 0;
-	root.h = geth(start, goal);
+	Node *t = &root;
+	t->state = start;
+	t->action = NULL;
+	t->parent = NULL;
+	t->pathcost = 0;
+	t->h = geth(start, goal);
+	getPosition(t);
+	getActionBool(t);
 
-	Node *t = NULL;
-	q.push(root);
-	
+	q.push(t);
+
 	QueryPerformanceFrequency(&nFreq);//获取cpu频率
 	QueryPerformanceCounter(&t1);//算法开始时间
 //	t1 = clock();
 	while (!q.empty()) {
-		Node *n = new Node;
-		*n = q.top();
+		Node *n = NULL;
+		n = q.top();
 		q.pop();
-		char ac[] = {'u','d','l','r'};
+		hashmap[hashValue(n->state)] = true;
 		for (int i = 0;i < 4;i++) {
-			if (ac[i] == 'u' && n->action == 'd' || ac[i] == 'd' && n->action == 'u'
-				|| ac[i] == 'l' && n->action == 'r' || ac[i] == 'r' && n->action == 'l')
+			if (n->move[0] == false && ac[i] == 'u'
+				|| n->move[1] == false && ac[i] == 'd'
+				|| n->move[2] == false && ac[i] == 'l'
+				|| n->move[3] == false && ac[i] == 'r')
 				continue;
+			
 			t = getNode(n, goal, ac[i]);
-			if (t->state != NULL) {
-				q.push(*t);
-			}
+			tries++;
 			if (t->h == 0)
 				goto end;
+			if (!hashmap[hashValue(t->state)]) {
+					q.push(t);
+			}
+			else {
+				repeat++;
+				delete t;
+			}			
 		}
-	//	delete n;
 	}
 end:
 //	t2 = clock();
 	QueryPerformanceCounter(&t2);//算法结束时间
-	freopen("C:/Users/95850/Desktop/Mine/作业/人工智能基础/PB15111650_郭秋洋_实验一/22数码/output_Ah1.txt", "w", stdout);
+	freopen("output_Ah1.txt", "w", stdout);
 	//重定向输出流到指定文件
 	printf("%f毫秒\n", (t2.QuadPart - t1.QuadPart) / (double)nFreq.QuadPart * 1000);	
 	printAction(t);
@@ -101,9 +123,22 @@ end:
 	cout << (t2.QuadPart - t1.QuadPart) / (double)nFreq.QuadPart * 1000 << "毫秒" << endl;
 	movecount = 0;
 	printAction(t);
+
 	cout << endl << "移动次数:" << movecount << endl;
+	cout << "扩展次数:" << tries << endl;
+	cout << "查重次数:" << repeat << endl;
 	system("pause");
 	return 0;
+}
+
+int hashValue(char (*state)[N]) {
+	int hash = 0;
+	for (int i = 0;i < N;i++) {
+		for (int j = 0;j < N;j++) {
+			hash = hash*10 + state[i][j] - '0';
+		}
+	}
+	return hash;
 }
 
 int(*filesInput(const char* filePath))[N] {
@@ -118,83 +153,72 @@ int(*filesInput(const char* filePath))[N] {
 	return p;
 }
 
-Node *getNode(Node *currentNode, int(*goal)[N], char action) {
+Node *getNode(Node *currentNode, char(*goal)[N], char action) {
 	Node *childNode = new Node;	
-	actionBool aB = getActionBool(currentNode->state);
-	if (aB.d == false && action == 'd'
-		|| aB.u == false && action == 'u'
-		|| aB.r == false && action == 'r'
-		|| aB.l == false && action == 'l') {
-		childNode->state = NULL;
-		return childNode;
-	}
-
 	childNode->action = action;
 	childNode->parent = currentNode;
-	childNode->state = doAction(currentNode->state, action);
+	childNode->state = doAction(currentNode, action);
 	childNode->h = geth(childNode->state,goal);
 	childNode->pathcost = currentNode->pathcost + 1;
-
+	getPosition(childNode);
+	getActionBool(childNode);
 	return childNode;
 }
 
-int *getPosition(int(*state)[N],int n) {
-	int *position = new int[2];
+void getPosition(Node *p, char n) {
+	p->position = new char[2];
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
-			if (*(*(state + i) + j) == n) {
-				*position = i;
-				*(position + 1) = j;
+			if (*(*(p->state + i) + j) == n) {
+				*(p->position) = i + '0';
+				*(p->position + 1) = j + '0';
 				break;
 			}
 		}
 	}
-	return position;
 }
 
-int (*doAction(int(*state)[N],char action))[N] {
+char (*doAction(Node *p,char action))[N] {
 	int i, j;
-	int *position = getPosition(state);
-	i = position[0];
-	j = position[1];
-
-	int (*nextstate)[N] = new int[N][N];
+	i = p->position[0] - '0';
+	j = p->position[1] - '0';
+	char (*nextstate)[N] = new char[N][N];
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
-			*(*(nextstate + i) + j) = *(*(state + i) + j);
+			*(*(nextstate + i) + j) = *(*(p->state + i) + j);
 		}
 	}
 
 	switch (action) {
 		case 'd': {//下移
 			*(*(nextstate + i) + j) = *(*(nextstate + i + 1) + j);
-			*(*(nextstate + i + 1) + j) = 0;
+			*(*(nextstate + i + 1) + j) = '0';
 			break;
 		}
 		case 'u': {//上移
 			*(*(nextstate + i) + j) = *(*(nextstate + i - 1) + j);
-			*(*(nextstate + i - 1) + j) = 0;
+			*(*(nextstate + i - 1) + j) = '0';
 			break;
 		}
 		case 'r': {//右移
 			if (i == 2 && (j == 0 || j == 2)) {
 				*(*(nextstate + i) + j) = *(*(nextstate + i) + j + 2);
-				*(*(nextstate + i) + j + 2) = 0;
+				*(*(nextstate + i) + j + 2) = '0';
 			}
 			else {
 				*(*(nextstate + i) + j) = *(*(nextstate + i) + j + 1);
-				*(*(nextstate + i) + j + 1) = 0;
+				*(*(nextstate + i) + j + 1) = '0';
 			}
 			break;
 		}
 		case 'l': {//左移
 			if (i == 2 && (j == 2 || j == 4)) {
 				*(*(nextstate + i) + j) = *(*(nextstate + i) + j - 2);
-				*(*(nextstate + i) + j - 2) = 0;
+				*(*(nextstate + i) + j - 2) = '0';
 			}
 			else {
 				*(*(nextstate + i) + j) = *(*(nextstate + i) + j - 1);
-				*(*(nextstate + i) + j - 1) = 0;
+				*(*(nextstate + i) + j - 1) = '0';
 			}
 			break;
 		}
@@ -202,8 +226,9 @@ int (*doAction(int(*state)[N],char action))[N] {
 	return nextstate;
 }
 
-int geth(int (*state)[N], int (*goal)[N]) {
-	int h1 = 0;
+
+short geth(char (*state)[N], char (*goal)[N]) {
+	short h1 = 0;
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++){
 			if (*(*(state + i) + j) != *(*(goal + i) + j)) {
@@ -214,67 +239,81 @@ int geth(int (*state)[N], int (*goal)[N]) {
 	return h1;
 }
 
-actionBool getActionBool(int(*state)[N]) {
-	int i, j;
-	int *position = getPosition(state);
-	actionBool action;
-	i = position[0];
-	j = position[1];
-		if (i == 0 && j == 0 ){
-			action.d = true;
-			action.u = false;
-			action.r = true;
-			action.l = false;
-		}
-		else if (i == 4 && j == 0) {
-			action.d = false;
-			action.u = true;
-			action.r = true;
-			action.l = false;
-		}
-		else if (i == 0 && j == 4) {
-			action.d = true;
-			action.u = false;
-			action.r = false;
-			action.l = true;
-		}
-		else if (i == 4 && j == 4) {
-			action.d = false;
-			action.u = true;
-			action.r = false;
-			action.l = true;
-		}
-		else if (i == 0 || i == 3 && (j == 1 || j == 3)) { //考虑半透明障碍位
-			action.d = true;
-			action.u = false;
-			action.r = true;
-			action.l = true;
-		}
-		else if (i == 4 || i == 1 && (j == 1 || j == 3)) { //考虑半透明障碍位
-			action.d = false;
-			action.u = true;
-			action.r = true;
-			action.l = true;
-		}
-		else if (j == 0) {
-			action.d = true;
-			action.u = true;
-			action.r = true;
-			action.l = false;
-		}
-		else if (j == 4) {
-			action.d = true;
-			action.u = true;
-			action.r = false;
-			action.l = true;
-		}
-		else {
-				action.d = true;
-				action.u = true;
-				action.r = true;
-				action.l = true;
-		}
-		return action;
+void getActionBool(Node *p) {
+	int i, j; 
+	i = p->position[0] - '0';
+	j = p->position[1] - '0';
+	p->move = new boolean[4];
+	if (i == 0 && j == 0) {
+		p->move[0] = false;			//上
+		p->move[1] = true;			//下
+		p->move[2] = false;			//左
+		p->move[3] = true;			//右
+	}
+	else if (i == 4 && j == 0) {
+		p->move[0] = true;
+		p->move[1] = false;			
+		p->move[2] = false;			
+		p->move[3] = true;
+	}
+	else if (i == 0 && j == 4) {
+		p->move[0] = false;
+		p->move[1] = true;
+		p->move[2] = true;
+		p->move[3] = false;
+	}
+	else if (i == 4 && j == 4) {
+		p->move[0] = true;
+		p->move[1] = false;
+		p->move[2] = true;
+		p->move[3] = false;
+	}
+	else if (i == 0 || i == 3 && (j == 1 || j == 3)) { //考虑半透明障碍位
+		p->move[0] = false;
+		p->move[1] = true;
+		p->move[2] = true;
+		p->move[3] = true;
+	}
+	else if (i == 4 || i == 1 && (j == 1 || j == 3)) { //考虑半透明障碍位
+		p->move[0] = true;
+		p->move[1] = false;
+		p->move[2] = true;
+		p->move[3] = true;
+	}
+	else if (j == 0) {
+		p->move[0] = true;
+		p->move[1] = true;
+		p->move[2] = false;
+		p->move[3] = true;
+	}
+	else if (j == 4) {
+		p->move[0] = true;
+		p->move[1] = true;
+		p->move[2] = true;
+		p->move[3] = false;
+	}
+	else {
+		p->move[0] = true;
+		p->move[1] = true;
+		p->move[2] = true;
+		p->move[3] = true;
+	}
+
+	if (p->action == 'u') {
+		p->move[1] = false;
+	}
+	else if (p->action == 'd') {
+		p->move[0] = false;
+	}
+	else if (p->action == 'l') {
+		p->move[3] = false;
+	}
+	else if (p->action == 'r') {
+		p->move[2] = false;
+	}
+	else {
+		//do nothing
+	}
 }
 
 void printAction(Node *p) {
@@ -284,5 +323,4 @@ void printAction(Node *p) {
 		printf("%c", p->action);
 		movecount++;
 	}
-	
 }
