@@ -34,7 +34,7 @@ struct cmp {
 LARGE_INTEGER nFreq;//cpu frequency  
 LARGE_INTEGER t1;//begin
 LARGE_INTEGER t2;//end
-char ac[] = { 'u','d','l','r' };
+char ac[] = { 'U','D','L','R' };
 int movecount = 0; //移动总次数
 int tries;			//扩展次数
 int repeat;			//查重次数
@@ -89,10 +89,10 @@ int main() {
 		q.pop();
 		hashmap[hashValue(n->state)] = true;
 		for (int i = 0;i < 4;i++) {
-			if (n->move[0] == false && ac[i] == 'u'
-				|| n->move[1] == false && ac[i] == 'd'
-				|| n->move[2] == false && ac[i] == 'l'
-				|| n->move[3] == false && ac[i] == 'r')
+			if (n->move[0] == false && ac[i] == 'U'
+				|| n->move[1] == false && ac[i] == 'D'
+				|| n->move[2] == false && ac[i] == 'L'
+				|| n->move[3] == false && ac[i] == 'R')
 				continue;
 			
 			t = getNode(n, goal, ac[i]);
@@ -113,14 +113,14 @@ end:
 	QueryPerformanceCounter(&t2);//算法结束时间
 	freopen("output_Ah1.txt", "w", stdout);
 	//重定向输出流到指定文件
-	printf("%f毫秒\n", (t2.QuadPart - t1.QuadPart) / (double)nFreq.QuadPart * 1000);	
+	printf("%fs\n", (t2.QuadPart - t1.QuadPart) / (double)nFreq.QuadPart);	
 	printAction(t);
 	printf("\n%d\n", movecount);
 	freopen("CON", "w", stdout);
 	//重定向输出流到windows控制台
 
 //	cout << (double)(t2 - t1) / CLOCKS_PER_SEC << endl;
-	cout << (t2.QuadPart - t1.QuadPart) / (double)nFreq.QuadPart * 1000 << "毫秒" << endl;
+	cout << (t2.QuadPart - t1.QuadPart) / (double)nFreq.QuadPart << "s" << endl;
 	movecount = 0;
 	printAction(t);
 
@@ -190,17 +190,17 @@ char (*doAction(Node *p,char action))[N] {
 	}
 
 	switch (action) {
-		case 'd': {//下移
+		case 'D': {//下移
 			*(*(nextstate + i) + j) = *(*(nextstate + i + 1) + j);
 			*(*(nextstate + i + 1) + j) = '0';
 			break;
 		}
-		case 'u': {//上移
+		case 'U': {//上移
 			*(*(nextstate + i) + j) = *(*(nextstate + i - 1) + j);
 			*(*(nextstate + i - 1) + j) = '0';
 			break;
 		}
-		case 'r': {//右移
+		case 'R': {//右移
 			if (i == 2 && (j == 0 || j == 2)) {
 				*(*(nextstate + i) + j) = *(*(nextstate + i) + j + 2);
 				*(*(nextstate + i) + j + 2) = '0';
@@ -211,7 +211,7 @@ char (*doAction(Node *p,char action))[N] {
 			}
 			break;
 		}
-		case 'l': {//左移
+		case 'L': {//左移
 			if (i == 2 && (j == 2 || j == 4)) {
 				*(*(nextstate + i) + j) = *(*(nextstate + i) + j - 2);
 				*(*(nextstate + i) + j - 2) = '0';
@@ -299,16 +299,16 @@ void getActionBool(Node *p) {
 		p->move[3] = true;
 	}
 
-	if (p->action == 'u') {
+	if (p->action == 'U') {
 		p->move[1] = false;
 	}
-	else if (p->action == 'd') {
+	else if (p->action == 'D') {
 		p->move[0] = false;
 	}
-	else if (p->action == 'l') {
+	else if (p->action == 'L') {
 		p->move[3] = false;
 	}
-	else if (p->action == 'r') {
+	else if (p->action == 'R') {
 		p->move[2] = false;
 	}
 	else {

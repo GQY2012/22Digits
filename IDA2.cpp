@@ -16,7 +16,7 @@ typedef struct searchTree {
 	struct searchTree *parent;	 //指向父节点
 	char action;	 //生成该节点的动作
 	short pathcost;	 //到达此节点已花费的代价g(n)
-	int h;			 //当前状态不在位的棋子数h(n)
+	int h;			 //当前状态欧几里得距离向上取整h(n)
 	boolean *move;	 //能移动的方向
 	char *position;	 //0所在的位置
 }Node;
@@ -37,7 +37,7 @@ char(*start)[N] = new char[N][N];
 char(*goal)[N] = new char[N][N];
 list<Node*> nodeList;
 list<Node*> ::iterator iter;
-char ac[] = { 'u','d','l','r' };
+char ac[] = { 'U','D','L','R' };
 int movecount = 0; //移动总次数
 int limit, next_limit = INT_MAX;
 Node *r;
@@ -47,7 +47,7 @@ Node *getNode(Node*, char(*)[N], char);//返回子节点
 void getPosition(Node*, char n = '0');  //返回数字n所在位置
 int *getPosition(char(*)[N], char n);		//返回数字n所在位置
 char(*doAction(Node*, char))[N];	 //移动
-int geth(char(*)[N], char(*)[N]);      //返回曼哈顿距离的一半向上取整
+int geth(char(*)[N], char(*)[N]);      //返回欧几里得距离向上取整
 void getActionBool(Node*);			 //返回当前状态可进行的动作
 void printAction(Node*);			 //打印移动路径
 boolean dfs(Node*);
@@ -95,14 +95,14 @@ int main() {
 	QueryPerformanceCounter(&t2);//算法结束时间
 	freopen("output_IDAh2.txt", "w", stdout);
 	//重定向输出流到指定文件
-	printf("%f毫秒\n", (t2.QuadPart - t1.QuadPart) / (double)nFreq.QuadPart * 1000);
+	printf("%fs\n", (t2.QuadPart - t1.QuadPart) / (double)nFreq.QuadPart);
 	printAction(r);
 	printf("\n%d\n", movecount);
 	freopen("CON", "w", stdout);
 	//重定向输出流到windows控制台
 
 	//	cout << (double)(t2 - t1) / CLOCKS_PER_SEC << endl;
-	cout << (t2.QuadPart - t1.QuadPart) / (double)nFreq.QuadPart * 1000 << "毫秒" << endl;
+	cout << (t2.QuadPart - t1.QuadPart) / (double)nFreq.QuadPart << "s" << endl;
 	movecount = 0;
 	printAction(r);
 
@@ -174,17 +174,17 @@ char(*doAction(Node *p, char action))[N] {
 	}
 
 	switch (action) {
-	case 'd': {//下移
+	case 'D': {//下移
 		*(*(nextstate + i) + j) = *(*(nextstate + i + 1) + j);
 		*(*(nextstate + i + 1) + j) = '0';
 		break;
 	}
-	case 'u': {//上移
+	case 'U': {//上移
 		*(*(nextstate + i) + j) = *(*(nextstate + i - 1) + j);
 		*(*(nextstate + i - 1) + j) = '0';
 		break;
 	}
-	case 'r': {//右移
+	case 'R': {//右移
 		if (i == 2 && (j == 0 || j == 2)) {
 			*(*(nextstate + i) + j) = *(*(nextstate + i) + j + 2);
 			*(*(nextstate + i) + j + 2) = '0';
@@ -195,7 +195,7 @@ char(*doAction(Node *p, char action))[N] {
 		}
 		break;
 	}
-	case 'l': {//左移
+	case 'L': {//左移
 		if (i == 2 && (j == 2 || j == 4)) {
 			*(*(nextstate + i) + j) = *(*(nextstate + i) + j - 2);
 			*(*(nextstate + i) + j - 2) = '0';
@@ -212,16 +212,17 @@ char(*doAction(Node *p, char action))[N] {
 
 
 int geth(char(*state)[N], char(*goal)[N]) {
-	int h2 = 0;
+	double h2 = 0;
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			if (state[i][j] == '0' || state[i][j] == '/')
 				continue;
 			int *p = getPosition(goal, state[i][j]);
-			h2 = h2 + abs(i - p[0]) + abs(j - p[1]);
+			h2 = h2 + sqrt(pow(abs(i - p[0]), 2) + pow(abs(j - p[1]), 2));
+			delete p;
 		}
 	}
-	return ceil((double)h2 / 2);
+	return ceil(h2);
 }
 
 
@@ -285,16 +286,16 @@ void getActionBool(Node *p) {
 		p->move[3] = true;
 	}
 
-	if (p->action == 'u') {
+	if (p->action == 'U') {
 		p->move[1] = false;
 	}
-	else if (p->action == 'd') {
+	else if (p->action == 'D') {
 		p->move[0] = false;
 	}
-	else if (p->action == 'l') {
+	else if (p->action == 'L') {
 		p->move[3] = false;
 	}
-	else if (p->action == 'r') {
+	else if (p->action == 'R') {
 		p->move[2] = false;
 	}
 	else {
@@ -307,10 +308,10 @@ boolean dfs(Node *n) {
 		return true;
 	Node *t;
 	for (int i = 0;i < 4;i++) {
-		if (n->move[0] == false && ac[i] == 'u'
-			|| n->move[1] == false && ac[i] == 'd'
-			|| n->move[2] == false && ac[i] == 'l'
-			|| n->move[3] == false && ac[i] == 'r')
+		if (n->move[0] == false && ac[i] == 'U'
+			|| n->move[1] == false && ac[i] == 'D'
+			|| n->move[2] == false && ac[i] == 'L'
+			|| n->move[3] == false && ac[i] == 'R')
 			continue;
 		t = getNode(n, goal, ac[i]);
 		nodeList.push_back(t);
